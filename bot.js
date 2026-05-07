@@ -14,6 +14,12 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
 
+// 🔐 ALLOWED ROLES (PUT ROLE IDS HERE)
+const ALLOWED_ROLES = [
+  "ROLE_ID_1",
+  "ROLE_ID_2"
+];
+
 // =====================
 // BOT
 // =====================
@@ -22,9 +28,18 @@ const client = new Client({
 });
 
 // =====================
-// DATA (EMPTY START)
+// DATA
 // =====================
 let players = [];
+
+// =====================
+// PERMISSION CHECK
+// =====================
+function hasPermission(member) {
+  return member.roles.cache.some(role =>
+    ALLOWED_ROLES.includes(role.id)
+  );
+}
 
 // =====================
 // FORMAT LEADERBOARD
@@ -76,14 +91,14 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("send")
-    .setDescription("Send leaderboard to channel"),
+    .setDescription("Send leaderboard"),
 
   new SlashCommandBuilder()
     .setName("restart")
     .setDescription("Reset leaderboard")
     .addStringOption(opt =>
       opt.setName("confirm")
-        .setDescription("Type YES to confirm")
+        .setDescription("Type YES")
     ),
 
   new SlashCommandBuilder()
@@ -91,12 +106,12 @@ const commands = [
     .setDescription("Clear bot messages")
     .addIntegerOption(opt =>
       opt.setName("amount")
-        .setDescription("Messages to scan (max 100)")
+        .setDescription("Message count (max 100)")
     ),
 
   new SlashCommandBuilder()
     .setName("about")
-    .setDescription("About this bot")
+    .setDescription("About bot")
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -119,7 +134,17 @@ async function registerCommands() {
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // ➕ ADD (last place)
+  const member = interaction.member;
+
+  // 🔐 ROLE CHECK (GLOBAL LOCK)
+  if (!hasPermission(member)) {
+    return interaction.reply({
+      content: "❌ You don't have permission to use this bot.",
+      ephemeral: true
+    });
+  }
+
+  // ➕ ADD
   if (interaction.commandName === "add") {
     const user = interaction.options.getUser("user");
 
@@ -128,10 +153,10 @@ client.on("interactionCreate", async (interaction) => {
       rank: players.length + 1
     });
 
-    await interaction.reply(`✅ Added <@${user.id}> to last place`);
+    return interaction.reply(`✅ Added <@${user.id}> to last place`);
   }
 
-  // 🔁 MOVE (REAL POSITION SYSTEM)
+  // 🔁 MOVE
   if (interaction.commandName === "move") {
     const user = interaction.options.getUser("user");
     let position = interaction.options.getInteger("position");
@@ -149,17 +174,17 @@ client.on("interactionCreate", async (interaction) => {
 
     players.forEach((p, i) => p.rank = i + 1);
 
-    await interaction.reply(`🔁 Moved <@${user.id}> to **#${position}**`);
+    return interaction.reply(`🔁 Moved <@${user.id}> to **#${position}**`);
   }
 
-  // 📢 SEND (ONLY DISPLAY COMMAND NOW)
+  // 📢 SEND
   if (interaction.commandName === "send") {
     const channel = client.channels.cache.get(LEADERBOARD_CHANNEL_ID);
     if (!channel) return interaction.reply("❌ Channel not found");
 
     await channel.send(formatLeaderboard(players));
 
-    await interaction.reply({
+    return interaction.reply({
       content: "📢 Leaderboard sent!",
       ephemeral: true
     });
@@ -174,10 +199,10 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     players = [];
-    await interaction.reply("💥 Leaderboard reset");
+    return interaction.reply("💥 Leaderboard reset");
   }
 
-  // 🧹 CLEAR BOT MESSAGES
+  // 🧹 CLEAR
   if (interaction.commandName === "clear") {
     const amount = interaction.options.getInteger("amount") || 50;
 
@@ -190,13 +215,13 @@ client.on("interactionCreate", async (interaction) => {
 
     await interaction.channel.bulkDelete(botMessages, true);
 
-    await interaction.reply({
+    return interaction.reply({
       content: `🧹 Cleared ${botMessages.size} messages`,
       ephemeral: true
     });
   }
 
-  // ℹ ABOUT
+  // ℹ ABOUT (NO LOCK NEEDED OPTION)
   if (interaction.commandName === "about") {
     return interaction.reply(
       "📊 **Moonar Empire Leaderboard Bot**\n\n" +
@@ -207,7 +232,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =====================
-// START BOT
+// START
 // =====================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
