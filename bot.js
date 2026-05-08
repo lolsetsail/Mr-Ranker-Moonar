@@ -39,12 +39,8 @@ let players = [];
 // PERMISSION CHECK
 // =====================
 function hasPermission(member) {
-  // 👑 OWNER BYPASS
-  if (member.user.id === OWNER_ID) {
-    return true;
-  }
+  if (member.user.id === OWNER_ID) return true;
 
-  // 🔐 ROLE CHECK
   return member.roles.cache.some(role =>
     ALLOWED_ROLES.includes(role.id)
   );
@@ -100,7 +96,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("send")
-    .setDescription("Send leaderboard"),
+    .setDescription("Send leaderboard publicly"),
+
+  new SlashCommandBuilder()
+    .setName("view")
+    .setDescription("View leaderboard privately"),
 
   new SlashCommandBuilder()
     .setName("restart")
@@ -187,7 +187,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply(`🔁 Moved <@${user.id}> to **#${position}**`);
   }
 
-  // 📢 SEND
+  // 📢 SEND (PUBLIC)
   if (interaction.commandName === "send") {
     const channel = client.channels.cache.get(LEADERBOARD_CHANNEL_ID);
 
@@ -199,6 +199,14 @@ client.on("interactionCreate", async (interaction) => {
 
     return interaction.reply({
       content: "📢 Leaderboard sent!",
+      ephemeral: true
+    });
+  }
+
+  // 👀 VIEW (PRIVATE)
+  if (interaction.commandName === "view") {
+    return interaction.reply({
+      content: formatLeaderboard(players),
       ephemeral: true
     });
   }
