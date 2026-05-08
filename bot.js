@@ -14,11 +14,13 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
 
-// 🔐 ALLOWED ROLES (PUT ROLE IDS HERE)
+// 👑 OWNER USER ID
+const OWNER_ID = "YOUR_USER_ID_HERE";
+
+// 🔐 ALLOWED ROLES
 const ALLOWED_ROLES = [
-  "1498529143870980156",
-  "1498528806317723799",
-  "1501720971692740689"
+  "ROLE_ID_1",
+  "ROLE_ID_2"
 ];
 
 // =====================
@@ -37,6 +39,12 @@ let players = [];
 // PERMISSION CHECK
 // =====================
 function hasPermission(member) {
+  // 👑 OWNER BYPASS
+  if (member.user.id === OWNER_ID) {
+    return true;
+  }
+
+  // 🔐 ROLE CHECK
   return member.roles.cache.some(role =>
     ALLOWED_ROLES.includes(role.id)
   );
@@ -137,7 +145,7 @@ client.on("interactionCreate", async (interaction) => {
 
   const member = interaction.member;
 
-  // 🔐 ROLE CHECK (GLOBAL LOCK)
+  // 🔐 PERMISSION CHECK
   if (!hasPermission(member)) {
     return interaction.reply({
       content: "❌ You don't have permission to use this bot.",
@@ -163,6 +171,7 @@ client.on("interactionCreate", async (interaction) => {
     let position = interaction.options.getInteger("position");
 
     const index = players.findIndex(p => p.id === user.id);
+
     if (index === -1) {
       return interaction.reply("❌ Player not found");
     }
@@ -181,7 +190,10 @@ client.on("interactionCreate", async (interaction) => {
   // 📢 SEND
   if (interaction.commandName === "send") {
     const channel = client.channels.cache.get(LEADERBOARD_CHANNEL_ID);
-    if (!channel) return interaction.reply("❌ Channel not found");
+
+    if (!channel) {
+      return interaction.reply("❌ Channel not found");
+    }
 
     await channel.send(formatLeaderboard(players));
 
@@ -196,10 +208,11 @@ client.on("interactionCreate", async (interaction) => {
     const confirm = interaction.options.getString("confirm");
 
     if (confirm !== "YES") {
-      return interaction.reply("⚠ Use `/restart confirm: YES`");
+      return interaction.reply("⚠ Use `/restart confirm:YES`");
     }
 
     players = [];
+
     return interaction.reply("💥 Leaderboard reset");
   }
 
@@ -211,18 +224,23 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply("❌ Max 100 messages");
     }
 
-    const messages = await interaction.channel.messages.fetch({ limit: amount });
-    const botMessages = messages.filter(m => m.author.id === client.user.id);
+    const messages = await interaction.channel.messages.fetch({
+      limit: amount
+    });
+
+    const botMessages = messages.filter(
+      m => m.author.id === client.user.id
+    );
 
     await interaction.channel.bulkDelete(botMessages, true);
 
     return interaction.reply({
-      content: `🧹 Cleared ${botMessages.size} messages`,
+      content: `🧹 Cleared ${botMessages.size} bot messages`,
       ephemeral: true
     });
   }
 
-  // ℹ ABOUT (NO LOCK NEEDED OPTION)
+  // ℹ ABOUT
   if (interaction.commandName === "about") {
     return interaction.reply(
       "📊 **Moonar Empire Leaderboard Bot**\n\n" +
@@ -233,12 +251,15 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =====================
-// START
+// READY
 // =====================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+// =====================
+// START
+// =====================
 registerCommands().then(() => {
   client.login(TOKEN);
 });
