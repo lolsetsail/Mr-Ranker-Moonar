@@ -27,7 +27,10 @@ const ALLOWED_ROLES = [
 // BOT
 // =====================
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 // =====================
@@ -79,6 +82,10 @@ const commands = [
         .setDescription("Player")
         .setRequired(true)
     ),
+
+  new SlashCommandBuilder()
+    .setName("all")
+    .setDescription("Add all server members to leaderboard"),
 
   new SlashCommandBuilder()
     .setName("move")
@@ -157,12 +164,50 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "add") {
     const user = interaction.options.getUser("user");
 
+    const exists = players.some(p => p.id === user.id);
+
+    if (exists) {
+      return interaction.reply("❌ Player already exists");
+    }
+
     players.push({
       id: user.id,
       rank: players.length + 1
     });
 
-    return interaction.reply(`✅ Added <@${user.id}> to last place`);
+    return interaction.reply(
+      `✅ Added <@${user.id}> to last place`
+    );
+  }
+
+  // 👥 ADD ALL
+  if (interaction.commandName === "all") {
+    await interaction.guild.members.fetch();
+
+    const members = interaction.guild.members.cache.filter(
+      m => !m.user.bot
+    );
+
+    let added = 0;
+
+    members.forEach(m => {
+      const exists = players.some(
+        p => p.id === m.user.id
+      );
+
+      if (!exists) {
+        players.push({
+          id: m.user.id,
+          rank: players.length + 1
+        });
+
+        added++;
+      }
+    });
+
+    return interaction.reply(
+      `👥 Added ${added} members to the leaderboard`
+    );
   }
 
   // 🔁 MOVE
@@ -170,7 +215,9 @@ client.on("interactionCreate", async (interaction) => {
     const user = interaction.options.getUser("user");
     let position = interaction.options.getInteger("position");
 
-    const index = players.findIndex(p => p.id === user.id);
+    const index = players.findIndex(
+      p => p.id === user.id
+    );
 
     if (index === -1) {
       return interaction.reply("❌ Player not found");
@@ -178,24 +225,37 @@ client.on("interactionCreate", async (interaction) => {
 
     const [player] = players.splice(index, 1);
 
-    position = Math.max(1, Math.min(position, players.length + 1));
+    position = Math.max(
+      1,
+      Math.min(position, players.length + 1)
+    );
 
     players.splice(position - 1, 0, player);
 
-    players.forEach((p, i) => p.rank = i + 1);
+    players.forEach((p, i) => {
+      p.rank = i + 1;
+    });
 
-    return interaction.reply(`🔁 Moved <@${user.id}> to **#${position}**`);
+    return interaction.reply(
+      `🔁 Moved <@${user.id}> to **#${position}**`
+    );
   }
 
-  // 📢 SEND (PUBLIC)
+  // 📢 SEND
   if (interaction.commandName === "send") {
-    const channel = client.channels.cache.get(LEADERBOARD_CHANNEL_ID);
+    const channel = client.channels.cache.get(
+      LEADERBOARD_CHANNEL_ID
+    );
 
     if (!channel) {
-      return interaction.reply("❌ Channel not found");
+      return interaction.reply(
+        "❌ Channel not found"
+      );
     }
 
-    await channel.send(formatLeaderboard(players));
+    await channel.send(
+      formatLeaderboard(players)
+    );
 
     return interaction.reply({
       content: "📢 Leaderboard sent!",
@@ -203,7 +263,7 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // 👀 VIEW (PRIVATE)
+  // 👀 VIEW
   if (interaction.commandName === "view") {
     return interaction.reply({
       content: formatLeaderboard(players),
@@ -213,34 +273,46 @@ client.on("interactionCreate", async (interaction) => {
 
   // 💥 RESTART
   if (interaction.commandName === "restart") {
-    const confirm = interaction.options.getString("confirm");
+    const confirm =
+      interaction.options.getString("confirm");
 
     if (confirm !== "YES") {
-      return interaction.reply("⚠ Use `/restart confirm:YES`");
+      return interaction.reply(
+        "⚠ Use `/restart confirm:YES`"
+      );
     }
 
     players = [];
 
-    return interaction.reply("💥 Leaderboard reset");
+    return interaction.reply(
+      "💥 Leaderboard reset"
+    );
   }
 
   // 🧹 CLEAR
   if (interaction.commandName === "clear") {
-    const amount = interaction.options.getInteger("amount") || 50;
+    const amount =
+      interaction.options.getInteger("amount") || 50;
 
     if (amount > 100) {
-      return interaction.reply("❌ Max 100 messages");
+      return interaction.reply(
+        "❌ Max 100 messages"
+      );
     }
 
-    const messages = await interaction.channel.messages.fetch({
-      limit: amount
-    });
+    const messages =
+      await interaction.channel.messages.fetch({
+        limit: amount
+      });
 
     const botMessages = messages.filter(
       m => m.author.id === client.user.id
     );
 
-    await interaction.channel.bulkDelete(botMessages, true);
+    await interaction.channel.bulkDelete(
+      botMessages,
+      true
+    );
 
     return interaction.reply({
       content: `🧹 Cleared ${botMessages.size} bot messages`,
@@ -262,7 +334,9 @@ client.on("interactionCreate", async (interaction) => {
 // READY
 // =====================
 client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(
+    `Logged in as ${client.user.tag}`
+  );
 });
 
 // =====================
