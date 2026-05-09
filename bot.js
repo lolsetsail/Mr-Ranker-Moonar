@@ -84,6 +84,15 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName("remove")
+    .setDescription("Remove player from leaderboard")
+    .addUserOption(opt =>
+      opt.setName("user")
+        .setDescription("Player")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
     .setName("all")
     .setDescription("Add all server members to leaderboard"),
 
@@ -164,10 +173,14 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "add") {
     const user = interaction.options.getUser("user");
 
-    const exists = players.some(p => p.id === user.id);
+    const exists = players.some(
+      p => p.id === user.id
+    );
 
     if (exists) {
-      return interaction.reply("❌ Player already exists");
+      return interaction.reply(
+        "❌ Player already exists"
+      );
     }
 
     players.push({
@@ -180,13 +193,40 @@ client.on("interactionCreate", async (interaction) => {
     );
   }
 
+  // ❌ REMOVE
+  if (interaction.commandName === "remove") {
+    const user = interaction.options.getUser("user");
+
+    const index = players.findIndex(
+      p => p.id === user.id
+    );
+
+    if (index === -1) {
+      return interaction.reply(
+        "❌ Player not found"
+      );
+    }
+
+    players.splice(index, 1);
+
+    // Re-rank leaderboard
+    players.forEach((p, i) => {
+      p.rank = i + 1;
+    });
+
+    return interaction.reply(
+      `❌ Removed <@${user.id}> from the leaderboard`
+    );
+  }
+
   // 👥 ADD ALL
   if (interaction.commandName === "all") {
     await interaction.guild.members.fetch();
 
-    const members = interaction.guild.members.cache.filter(
-      m => !m.user.bot
-    );
+    const members =
+      interaction.guild.members.cache.filter(
+        m => !m.user.bot
+      );
 
     let added = 0;
 
@@ -213,14 +253,17 @@ client.on("interactionCreate", async (interaction) => {
   // 🔁 MOVE
   if (interaction.commandName === "move") {
     const user = interaction.options.getUser("user");
-    let position = interaction.options.getInteger("position");
+    let position =
+      interaction.options.getInteger("position");
 
     const index = players.findIndex(
       p => p.id === user.id
     );
 
     if (index === -1) {
-      return interaction.reply("❌ Player not found");
+      return interaction.reply(
+        "❌ Player not found"
+      );
     }
 
     const [player] = players.splice(index, 1);
